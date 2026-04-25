@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from news import fetch_articles, generate_digest, translate, FEEDS
+from preferences import save_feedback, get_preference_prompt, score_articles
 import threading
 import time
 
@@ -16,7 +17,11 @@ def build_news():
     if not articles:
         return None
 
-    digest = generate_digest(articles)
+    # 好みに基づいてスコアリング・ソート
+    articles = score_articles(articles)
+
+    pref_prompt = get_preference_prompt()
+    digest = generate_digest(articles, pref_prompt)
 
     result = []
     for a in articles:
@@ -25,6 +30,7 @@ def build_news():
         result.append({
             "source": a["source"],
             "title": title,
+            "original_title": a["title"],
             "summary": summary,
             "link": a["link"],
         })
@@ -40,7 +46,6 @@ def refresh_cache():
             _cache["updated_at"] = time.time()
 
 
-# 起動時にバックグラウンドで取得開始
 threading.Thread(target=refresh_cache, daemon=True).start()
 
 
@@ -60,6 +65,16 @@ def api_news():
 def api_refresh():
     threading.Thread(target=refresh_cache, daemon=True).start()
     return jsonify({"status": "refreshing"})
+
+
+@app.route("/api/feedback", methods=["POST"])
+def api_feedback():
+    data = request.get_json()
+    title = data.get("title", "")
+    liked = data.get("liked", True)
+    if title:
+        save_feedback(title, liked)
+    return jsonify({"status": "ok"})
 
 
 if __name__ == "__main__":
