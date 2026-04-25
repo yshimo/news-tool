@@ -33,6 +33,7 @@ def build_news():
             "original_title": a["title"],
             "summary": summary,
             "link": a["link"],
+            "published": a.get("published", ""),
         })
 
     return {"digest": digest, "articles": result}

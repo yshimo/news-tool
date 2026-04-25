@@ -43,11 +43,21 @@ def fetch_articles(max_per_feed: int) -> list[dict]:
                 title = entry.get("title", "").strip()
                 summary = entry.get("summary", entry.get("description", "")).strip()
                 if title:
+                    published = entry.get("published_parsed") or entry.get("updated_parsed")
+                    if published:
+                        import calendar
+                        from datetime import datetime, timedelta, timezone
+                        JST = timezone(timedelta(hours=9))
+                        dt = datetime.fromtimestamp(calendar.timegm(published), tz=timezone.utc).astimezone(JST)
+                        pub_str = dt.strftime("%Y/%m/%d %H:%M")
+                    else:
+                        pub_str = ""
                     articles.append({
                         "source": source,
                         "title": title,
                         "summary": summary[:400] if summary else "",
                         "link": entry.get("link", ""),
+                        "published": pub_str,
                         "needs_translation": source not in JAPANESE_SOURCES,
                     })
         except Exception as e:
