@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>世界ニュース</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #f5f5f5; color: #333; }
+    header { background: #1a1a2e; color: white; padding: 16px 20px; position: sticky; top: 0; z-index: 10; }
+    header h1 { font-size: 1.2rem; }
+    header p { font-size: 0.75rem; opacity: 0.7; margin-top: 2px; }
+    .container { max-width: 680px; margin: 0 auto; padding: 16px; }
+    button#fetch-btn {
+      width: 100%; padding: 14px; background: #e94560; color: white;
+      border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-bottom: 16px;
+    }
+    button#fetch-btn:disabled { background: #aaa; cursor: not-allowed; }
+    .digest { background: white; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .digest h2 { font-size: 1rem; color: #1a1a2e; margin-bottom: 8px; border-bottom: 2px solid #e94560; padding-bottom: 6px; }
+    .digest p { font-size: 0.9rem; line-height: 1.7; white-space: pre-wrap; }
+    .source-group { margin-bottom: 16px; }
+    .source-label { font-size: 0.75rem; font-weight: bold; color: #e94560; text-transform: uppercase; margin-bottom: 8px; }
+    .article { background: white; border-radius: 8px; padding: 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .article h3 { font-size: 0.95rem; line-height: 1.5; margin-bottom: 6px; }
+    .article p { font-size: 0.82rem; color: #666; line-height: 1.6; margin-bottom: 6px; }
+    .article a { font-size: 0.78rem; color: #e94560; text-decoration: none; }
+    .spinner { text-align: center; padding: 40px; color: #999; font-size: 0.9rem; }
+    .error { background: #fff0f0; color: #c00; padding: 16px; border-radius: 8px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>世界ニュース</h1>
+    <p id="last-updated">最終更新: —</p>
+  </header>
+  <div class="container">
+    <button id="fetch-btn" onclick="refreshNews()">更新</button>
+    <div id="content"><div class="spinner">起動中...しばらくお待ちください</div></div>
+  </div>
+
+  <script>
+    let polling = null;
+
+    function renderNews(data) {
+      let html = "";
+      const sections = data.digest.split(/(?=## )/);
+      for (const sec of sections) {
+        if (!sec.trim()) continue;
+        const lines = sec.trim().split("\n");
+        const title = lines[0].replace(/^##\s*/, "");
+        const body = lines.slice(1).join("\n").trim();
+        html += `<div class="digest"><h2>${title}</h2><p>${body}</p></div>`;
+      }
+      const groups = {};
+      for (const a of data.articles) {
+        if (!groups[a.source]) groups[a.source] = [];
+        groups[a.source].push(a);
+      }
+      for (const [source, arts] of Object.entries(groups)) {
+        html += `<div class="source-group"><div class="source-label">${source}</div>`;
+        for (const a of arts) {
+          html += `<div class="article">
+            <h3>${a.title}</h3>
+            ${a.summary ? `<p>${a.summary}</p>` : ""}
+            ${a.link ? `<a href="${a.link}" target="_blank">記事を読む →</a>` : ""}
+          </div>`;
+        }
+        html += "</div>";
+      }
+      document.getElementById("content").innerHTML = html;
+      const d = new Date(data.updated_at * 1000);
+      document.getElementById("last-updated").textContent =
+        "最終更新: " + d.toLocaleTimeString("ja-JP");
+      document.getElementById("fetch-btn").disabled = false;
+      document.getElementById("fetch-btn").textContent = "更新";
+    }
+
+    async function pollNews() {
+      try {
+        const res = await fetch("/api/news");
+        if (res.status === 202) return; // まだ準備中
+        const data = await res.json();
+        if (data.articles) {
+          clearInterval(polling);
+          renderNews(data);
+        }
+      } catch (e) {}
+    }
+
+    async function refreshNews() {
+      document.getElementById("fetch-btn").disabled = true;
+      document.getElementById("fetch-btn").textContent = "取得中...";
+      document.getElementById("content").innerHTML = '<div class="spinner">ニュースを取得・翻訳中です。しばらくお待ちください...</div>';
+      await fetch("/api/refresh");
+      polling = setInterval(pollNews, 3000);
+    }
+
+    // 初回ポーリング
+    polling = setInterval(pollNews, 3000);
+  </script>
+</body>
+</html>
