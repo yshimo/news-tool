@@ -55,7 +55,7 @@ def fetch_articles(max_per_feed: int) -> list[dict]:
     return articles
 
 
-def generate_digest(articles: list[dict]) -> str:
+def generate_digest(articles: list[dict], pref_prompt: str = "") -> str:
     titles = "\n".join(
         f"- {a['title']}" for a in articles[:15]
     )
@@ -68,7 +68,7 @@ Write exactly two sections:
 
 ## 今後の展望
 (Describe future outlook in 3 sentences in Japanese)
-
+{pref_prompt}
 Headlines:
 {titles}"""
 

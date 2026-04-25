@@ -25,6 +25,13 @@
     .article h3 { font-size: 0.95rem; line-height: 1.5; margin-bottom: 6px; }
     .article p { font-size: 0.82rem; color: #666; line-height: 1.6; margin-bottom: 6px; }
     .article a { font-size: 0.78rem; color: #e94560; text-decoration: none; }
+    .feedback { display: flex; gap: 8px; margin-top: 8px; }
+    .feedback button {
+      background: none; border: 1px solid #ddd; border-radius: 4px;
+      padding: 4px 10px; font-size: 0.85rem; cursor: pointer; color: #999;
+    }
+    .feedback button.active-like { border-color: #4caf50; color: #4caf50; }
+    .feedback button.active-dislike { border-color: #f44336; color: #f44336; }
     .spinner { text-align: center; padding: 40px; color: #999; font-size: 0.9rem; }
     .error { background: #fff0f0; color: #c00; padding: 16px; border-radius: 8px; font-size: 0.9rem; }
   </style>
@@ -42,8 +49,20 @@
   <script>
     let polling = null;
 
+    async function sendFeedback(title, liked, btn) {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({title, liked}),
+      });
+      const parent = btn.parentElement;
+      parent.querySelectorAll("button").forEach(b => b.classList.remove("active-like", "active-dislike"));
+      btn.classList.add(liked ? "active-like" : "active-dislike");
+    }
+
     function renderNews(data) {
       let html = "";
+
       const sections = data.digest.split(/(?=## )/);
       for (const sec of sections) {
         if (!sec.trim()) continue;
@@ -52,6 +71,7 @@
         const body = lines.slice(1).join("\n").trim();
         html += `<div class="digest"><h2>${title}</h2><p>${body}</p></div>`;
       }
+
       const groups = {};
       for (const a of data.articles) {
         if (!groups[a.source]) groups[a.source] = [];
@@ -60,14 +80,20 @@
       for (const [source, arts] of Object.entries(groups)) {
         html += `<div class="source-group"><div class="source-label">${source}</div>`;
         for (const a of arts) {
+          const escaped = a.original_title.replace(/"/g, "&quot;");
           html += `<div class="article">
             <h3>${a.title}</h3>
             ${a.summary ? `<p>${a.summary}</p>` : ""}
             ${a.link ? `<a href="${a.link}" target="_blank">記事を読む →</a>` : ""}
+            <div class="feedback">
+              <button onclick="sendFeedback('${escaped}', true, this)">👍 興味あり</button>
+              <button onclick="sendFeedback('${escaped}', false, this)">👎 興味なし</button>
+            </div>
           </div>`;
         }
         html += "</div>";
       }
+
       document.getElementById("content").innerHTML = html;
       const d = new Date(data.updated_at * 1000);
       document.getElementById("last-updated").textContent =
@@ -79,7 +105,7 @@
     async function pollNews() {
       try {
         const res = await fetch("/api/news");
-        if (res.status === 202) return; // まだ準備中
+        if (res.status === 202) return;
         const data = await res.json();
         if (data.articles) {
           clearInterval(polling);
@@ -96,7 +122,6 @@
       polling = setInterval(pollNews, 3000);
     }
 
-    // 初回ポーリング
     polling = setInterval(pollNews, 3000);
   </script>
 </body>
