@@ -25,6 +25,7 @@
     .article h3 { font-size: 0.95rem; line-height: 1.5; margin-bottom: 6px; }
     .article p { font-size: 0.82rem; color: #666; line-height: 1.6; margin-bottom: 6px; }
     .article a { font-size: 0.78rem; color: #e94560; text-decoration: none; }
+    .published { font-size: 0.75rem; color: #aaa; margin-bottom: 4px; }
     .feedback { display: flex; gap: 8px; margin-top: 8px; }
     .feedback button {
       background: none; border: 1px solid #ddd; border-radius: 4px;
@@ -83,6 +84,7 @@
           const escaped = a.original_title.replace(/"/g, "&quot;");
           html += `<div class="article">
             <h3>${a.title}</h3>
+            ${a.published ? `<p class="published">🕐 ${a.published} JST</p>` : ""}
             ${a.summary ? `<p>${a.summary}</p>` : ""}
             ${a.link ? `<a href="${a.link}" target="_blank">記事を読む →</a>` : ""}
             <div class="feedback">
